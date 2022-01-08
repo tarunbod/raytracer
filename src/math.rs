@@ -163,3 +163,7 @@ impl Ray {
         self.origin + t * self.direction
     }
 }
+
+pub fn in_range(x: f64, min: f64, max: f64) -> bool {
+    min <= x && x <= max
+}
