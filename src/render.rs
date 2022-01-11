@@ -1,12 +1,18 @@
 use std::path::Path;
 use std::fs::File;
-use std::io::{Write, BufWriter};
+use std::io::BufWriter;
 use rand::prelude::*;
 
 use crate::math::*;
 
+#[derive(Copy, Clone)]
+pub struct Material {
+    diffuse: Color
+}
+
 pub struct HitRecord {
     p: Point,
+    material: Material,
     n: Vec3,
     t: f64,
     front_face: bool
@@ -18,12 +24,13 @@ pub trait Hittable {
 
 pub struct Sphere {
     center: Point,
-    radius: f64
+    radius: f64,
+    material: Material
 }
 
 impl Sphere {
-    pub fn new(center: Point, radius: f64) -> Sphere {
-        Sphere { center, radius }
+    pub fn new(center: Point, radius: f64, base_color: Color) -> Sphere {
+        Sphere { center, radius, material: Material { diffuse: base_color } }
     }
 }
 
@@ -37,9 +44,11 @@ impl Hittable for Sphere {
         if discriminant < 0.0 {
             return None;
         }
-        let mut t = (-half_b - discriminant.sqrt())/a;
+
+        let sqrtd = discriminant.sqrt();
+        let mut t = (-half_b - sqrtd)/a;
         if !in_range(t, t_min, t_max) {
-            t = (-half_b + discriminant.sqrt())/a;
+            t = (-half_b + sqrtd)/a;
             if !in_range(t, t_min, t_max) {
                 return None;
             }
@@ -48,6 +57,7 @@ impl Hittable for Sphere {
         let normal = (point - self.center).unit();
         Some(HitRecord {
             p: point,
+            material: self.material,
             n: normal,
             t,
             front_face: Vec3::dot(&ray.direction, &normal) > 0.0
@@ -99,8 +109,8 @@ fn cast_ray(r: Ray, objects: &Vec<Box<dyn Hittable>>, bounces: u32) -> Color {
         return Color::ORIGIN;
     }
     if let Some(record) = objects.hit(&r, 0.001, f64::MAX) {
-        let target = record.p + record.n + random_unit_vec();
-        return 0.5 * cast_ray(Ray::new(record.p, target), objects, bounces - 1);
+        let target = random_hemisphere_vec(record.n);
+        return record.material.diffuse * cast_ray(Ray::new(record.p, target), objects, bounces - 1);
     }
     let t = (r.direction.y + 1.0) * 0.5;
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
@@ -172,10 +182,6 @@ pub fn render(objects: Vec<Box<dyn Hittable>>, config: RenderConfig, filename: &
                 );
             }
             color /= config.samples as f64;
-
-            // color.x = clamp(color.x, 0.0, 1.0);
-            // color.y = clamp(color.y, 0.0, 1.0);
-            // color.z = clamp(color.z, 0.0, 1.0);
 
             color = color.gamma_correct(2.0);
             color *= 255.0;

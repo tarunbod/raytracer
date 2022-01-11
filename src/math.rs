@@ -42,6 +42,10 @@ impl Vec3 {
         Vec3 { x, y, z }
     }
 
+    pub fn rgb(r: u8, g: u8, b: u8) -> Vec3 {
+        Self::new(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0)
+    }
+
     pub fn length(&self) -> f64 {
         self.length_squared().sqrt()
     }
@@ -75,6 +79,15 @@ pub fn random_vec_in_unit_sphere() -> Vec3 {
 
 pub fn random_unit_vec() -> Vec3 {
     random_vec_in_unit_sphere().unit()
+}
+
+pub fn random_hemisphere_vec(n: Vec3) -> Vec3 {
+    let v = random_unit_vec();
+    if Vec3::dot(&v, &n) > 0.0 {
+        v
+    } else {
+        -1.0 * v
+    }
 }
 
 impl ops::Add for Vec3 {
