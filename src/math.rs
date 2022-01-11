@@ -1,5 +1,6 @@
 // Math Code
 use std::ops;
+use rand::prelude::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3 {
@@ -33,6 +34,14 @@ impl Vec3 {
         }
     }
 
+    pub fn random(min: f64, max: f64) -> Vec3 {
+        let mut rng = rand::thread_rng();
+        let x = rng.gen::<f64>() * (max - min) + min;
+        let y = rng.gen::<f64>() * (max - min) + min;
+        let z = rng.gen::<f64>() * (max - min) + min;
+        Vec3 { x, y, z }
+    }
+
     pub fn length(&self) -> f64 {
         self.length_squared().sqrt()
     }
@@ -45,6 +54,27 @@ impl Vec3 {
         let l  = self.length();
         self / l
     }
+
+    pub fn gamma_correct(self, value: f64) -> Color {
+        Color {
+            x: self.x.powf(1.0 / value),
+            y: self.y.powf(1.0 / value),
+            z: self.z.powf(1.0 / value),
+        }
+    }
+}
+
+pub fn random_vec_in_unit_sphere() -> Vec3 {
+    loop {
+        let v = Vec3::random(-1.0, 1.0);
+        if v.length_squared() < 1.0 {
+            return v;
+        }
+    }
+}
+
+pub fn random_unit_vec() -> Vec3 {
+    random_vec_in_unit_sphere().unit()
 }
 
 impl ops::Add for Vec3 {
@@ -161,6 +191,16 @@ impl Ray {
     }
     pub fn at(&self, t: f64) -> Point {
         self.origin + t * self.direction
+    }
+}
+
+pub fn clamp(x: f64, min: f64, max: f64) -> f64 {
+    if x < min {
+        min
+    } else if x > max {
+        max
+    } else {
+        x
     }
 }
 
