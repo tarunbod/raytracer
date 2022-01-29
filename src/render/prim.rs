@@ -14,43 +14,34 @@ impl Tri {
         // let n = Vec3::cross(&(p1 - p2), &(p3 - p2)).unit();
         Tri { p1, p2, p3, normal, material: Material { diffuse: base_color } }
     }
-
-    pub fn contains(&self, p: Point) -> bool {
-        let e0 = self.p2 - self.p1;
-        let vp0 = p - self.p1; 
-        let mut c = Vec3::cross(&e0, &vp0); 
-        if Vec3::dot(&self.normal, &c) < 0.0 {
-             return false;
-        }
-    
-        let e1 = self.p3 - self.p2; 
-        let vp1 = p - self.p2; 
-        c = Vec3::cross(&e1, &vp1); 
-        if Vec3::dot(&self.normal, &c) < 0.0 {
-            return false; // P is on the right side 
-        }
-    
-        let e2 = self.p1 - self.p3; 
-        let vp2 = p - self.p3; 
-        c = Vec3::cross(&e2, &vp2); 
-        if Vec3::dot(&self.normal, &c) < 0.0 {
-            return false;
-        }
-
-        return true;
-    }
 }
 
 impl Hittable for Tri {
+    // Möller-Trumbore algorithm for ray-triangle intersection
+    // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/moller-trumbore-ray-triangle-intersection
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
-        let d = Vec3::dot(&self.normal, &self.p1);
-        let t = Vec3::dot(&self.normal, &ray.origin) + d / Vec3::dot(&self.normal, &ray.direction.unit());
-        let p = ray.at(t);
-        // println!("Intersect at {}", t);
-        if in_range(t, t_min, t_max) && self.contains(p) {
+        let v0v1 = self.p2 - self.p1;
+        let v0v2 = self.p3 - self.p1;
+        let pvec = Vec3::cross(&ray.direction, &v0v2);
+        let det = Vec3::dot(&v0v1, &pvec);
+        if det < 0.001 { return None; }
+
+        let inv_det = 1.0 / det;
+
+        let tvec = ray.origin - self.p1;
+        let u = Vec3::dot(&tvec, &pvec) * inv_det;
+        if u < 0.0 || u > 1.0 { return None; }
+
+        let qvec = Vec3::cross(&tvec, &v0v1);
+        let v = Vec3::dot(&ray.direction, &qvec) * inv_det;
+        if v < 0.0 || u + v > 1.0 { return None; }
+
+        let t = Vec3::dot(&v0v2, &qvec) * inv_det;
+        if in_range(t, t_min, t_max) {
             Some(HitRecord {
                 n: self.normal,
-                t, p,
+                t,
+                p: ray.at(t),
                 front_face: true,
                 material: self.material
             })
