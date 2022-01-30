@@ -2,53 +2,25 @@ mod math;
 mod render;
 
 use math::{Vec3, Point, Color};
-use render::{RenderConfig, prim::{Sphere, Tri}, Hittable};
-
-fn get_tri(p1: Point, p2: Point, p3: Point) -> Tri {
-    let n = Vec3::cross(&(p2 - p1), &(p3 - p1)).unit();
-    Tri::new(
-        p1, p2, p3, n,
-        n
-        // Color::rgb(255, 100, 150)
-    )
-}
+use render::{RenderConfig, prim::{Sphere, Tri}, model::Model, Hittable};
 
 fn main() {
-    let objs: Vec<Box<dyn Hittable>> = vec![
-        Box::new(get_tri(
-            Point::new(0.0, 0.0, -5.0),
-            Point::new(1.0, 0.0, -4.0),
-            Point::new(0.0, 1.0, -4.0)
-        )),
-        Box::new(get_tri(
-            Point::new(-1.0, 0.0, -4.0),
-            Point::new(0.0, 0.0, -5.0),
-            Point::new(0.0, 1.0, -4.0),
-        )),
-        Box::new(get_tri(
-            Point::new(1.0, 0.0, -4.0),
-            Point::new(0.0, 0.0, -5.0),
-            Point::new(0.0, -1.0, -4.0),
-        )),
-        Box::new(get_tri(
-            Point::new(0.0, 0.0, -5.0),
-            Point::new(-1.0, 0.0, -4.0),
-            Point::new(0.0, -1.0, -4.0),
-        ))
-    ];
+    let mut model = Model::load_obj("teapot.obj");
+    model.translate(Vec3::new(0.0, -1.8, -10.0));
 
-    // let mut objs: Vec<Box<dyn Hittable>> = vec![
-    //     Box::new(Sphere::new(Point::new(0.0, -100.25, -1.0), 100.0, Color::rgb(230, 50, 60)))
-    // ];
-    // for i in 0..5 {
-    //     objs.push(Box::new(Sphere::new(Point::new(-1.0 + (i as f64) / 2.0, 0.0, -1.0), 0.25, Color::rgb(60, 51 * i, 230))));
-    // }
-    render::render_multi(objs, RenderConfig {
-        width: 1920,
-        height: 1080,
-        samples: 100,
+    let objs: Vec<Box<dyn Hittable>> = vec![
+        Box::new(model),
+        Box::new(Tri::new(Point::new(-10.0, -2.0, 0.0), Point::new(10.0, -2.0, 0.0), Point::new(-70.0, -2.0, -30.0), Vec3::new(0.0, 1.0, 0.0), Color::rgb(255, 255, 255))),
+        Box::new(Tri::new(Point::new(-70.0, -2.0, -30.0), Point::new(10.0, -2.0, 0.0), Point::new(70.0, -2.0, -30.0), Vec3::new(0.0, 1.0, 0.0), Color::rgb(255, 255, 255))),
+        Box::new(Sphere::new(Point::new(-5.0, -0.25, -10.0), 1.75, Color::rgb(60, 51, 230))),
+        Box::new(Sphere::new(Point::new(5.0, -0.25, -10.0), 1.75, Color::rgb(60, 255, 230)))
+    ];
+    render::render(objs, RenderConfig {
+        width: 1024,
+        height: 576,
+        samples: 128,
         bounces: 50,
         threads: Some(4),
         progress: true
-    }, "test.png");
+    }, "teapot.png");
 }

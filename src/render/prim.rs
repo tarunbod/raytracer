@@ -1,6 +1,7 @@
 use crate::math::*;
 use crate::render::{Material, Hittable, HitRecord};
 
+#[derive(Debug)]
 pub struct Tri {
     p1: Point,
     p2: Point,
@@ -13,6 +14,17 @@ impl Tri {
     pub fn new(p1: Point, p2: Point, p3: Point, normal: Vec3, base_color: Color) -> Tri {
         // let n = Vec3::cross(&(p1 - p2), &(p3 - p2)).unit();
         Tri { p1, p2, p3, normal, material: Material { diffuse: base_color } }
+    }
+
+    pub fn calc(p1: Point, p2: Point, p3: Point) -> Tri {
+        let normal = Vec3::cross(&(p2 - p1), &(p3 - p1)).unit();
+        Self::new(p1, p2, p3, normal, normal)
+    }
+
+    pub fn translate(&mut self, by: Vec3) {
+        self.p1 += by;
+        self.p2 += by;
+        self.p3 += by;
     }
 }
 
@@ -48,31 +60,6 @@ impl Hittable for Tri {
         } else { None }
     }
 }
-
-// pub struct Model {
-//     tris: Vec<Tri>
-// }
-
-// impl Model {
-//     fn load_obj(path: &str) -> Model {
-
-//     }
-// }
-// 
-// impl Hittable for Model {
-//     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
-//         let mut temp: Option<HitRecord> = None;
-//         let mut closest = t_max;
-//         for object in self.tris.iter() {
-//             let record = object.hit(ray, t_min, closest);
-//             if record.is_some() {
-//                 closest = record.as_ref().unwrap().t;
-//                 temp = record;
-//             }
-//         }
-//         temp
-//     }
-// }
 
 pub struct Sphere {
     center: Point,

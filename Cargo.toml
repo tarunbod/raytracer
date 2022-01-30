@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 png = "0.17.2"
 rand = "0.8.4"
+tobj = "3.2.0"

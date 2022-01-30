@@ -1,4 +1,5 @@
 pub mod prim;
+pub mod model;
 
 use std::path::Path;
 use std::fs::File;
@@ -9,7 +10,7 @@ use rand::prelude::*;
 
 use crate::math::*;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Material {
     diffuse: Color
 }
@@ -126,7 +127,7 @@ pub struct RenderConfig {
     pub progress: bool
 }
 
-pub fn render_multi(objects: Vec<Box<dyn Hittable>>, config: RenderConfig, filename: &str) {
+pub fn render(objects: Vec<Box<dyn Hittable>>, config: RenderConfig, filename: &str) {
     let aspect_ratio: f64 = config.width as f64 / config.height as f64;
     let pixels = Arc::new(Mutex::new(vec![0 as u8; (config.width * config.height * 3) as usize]));
     let camera = Arc::new(Camera::new(aspect_ratio, 90.0));
