@@ -1,5 +1,7 @@
 /target
 frames
+output
 *.png
 *.obj
+!suzanne.obj
 *.mtl

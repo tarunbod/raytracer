@@ -50,20 +50,25 @@ struct Camera {
 }
 
 impl Camera {
-    fn new(aspect_ratio: f64, fov: f64) -> Camera {
+    fn new(position: Point, lookat: Point, aspect_ratio: f64, fov: f64) -> Camera {
+        let w = (position - lookat).unit();
+        let u = Vec3::cross(&Vec3::new(0.0, 1.0, 0.0), &w).unit();
+        let v = Vec3::cross(&w, &u);
+
         let viewport_width = 2.0 * (fov / 2.0).to_radians().tan();
-        let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
-        let vertical = Vec3::new(0.0, viewport_width / aspect_ratio, 0.0);
+        let horizontal = viewport_width * u; // Vec3::new(viewport_width, 0.0, 0.0);
+        let vertical = viewport_width / aspect_ratio * v; // Vec3::new(0.0, viewport_width / aspect_ratio, 0.0);
+
         Camera {
-            origin: Point::ORIGIN,
+            origin: position,
             horizontal,
             vertical,
-            top_left_corner: Point::ORIGIN - horizontal/2.0 + vertical/2.0 - Vec3::new(0.0, 0.0, 1.0)
+            top_left_corner: position - horizontal/2.0 + vertical/2.0 - w
         }
     }
 
     fn get_ray(&self, u: f64, v: f64) -> Ray {
-        Ray::new(self.origin, self.top_left_corner + u * self.horizontal - v * self.vertical)
+        Ray::new(self.origin, (self.top_left_corner + u * self.horizontal - v * self.vertical) - self.origin)
     }
 }
 
@@ -118,66 +123,87 @@ fn write_png(filepath: &str, data: &[u8], width: u32, height: u32) {
 //     println!("Done.");
 // }
 
+#[derive(Clone, Copy)]
+pub struct CameraConfig {
+    pub pos: Point,
+    pub lookat: Point,
+    pub fov: f64
+}
+
+#[derive(Clone, Copy)]
 pub struct RenderConfig {
     pub width: u32,
     pub height: u32,
     pub samples: u32,
     pub bounces: u32,
     pub threads: Option<u32>,
+    pub camera: CameraConfig,
     pub progress: bool
 }
 
-pub fn render(objects: Vec<Box<dyn Hittable>>, config: RenderConfig, filename: &str) {
-    let aspect_ratio: f64 = config.width as f64 / config.height as f64;
-    let pixels = Arc::new(Mutex::new(vec![0 as u8; (config.width * config.height * 3) as usize]));
-    let camera = Arc::new(Camera::new(aspect_ratio, 90.0));
-    
-    let objs_arc = Arc::new(objects);
-    let num_threads = config.threads.unwrap_or(1);
-    let slice_size = config.width / num_threads;
-
-    let mut handles = vec![];
-    for n in 0..num_threads {
-        let data = Arc::clone(&pixels);
-        let my_camera = Arc::clone(&camera);
-        let objs = Arc::clone(&objs_arc);
-        handles.push(thread::spawn(move || {
-            let start = slice_size * n;
-            let end = start + slice_size;
-            let mut rng = rand::thread_rng();
-            for j in start..end {
-                for i in 0..config.height {
-                    let mut color = Color::origin();
-                    for _ in 0..config.samples {
-                        let u = ((j as f64) + rng.gen::<f64>()) / (config.width - 1) as f64;
-                        let v = ((i as f64) + rng.gen::<f64>()) / (config.height - 1) as f64;
-                        color += cast_ray(
-                            my_camera.get_ray(u, v),
-                            &objs,
-                            config.bounces
-                        );
-                    }
-                    color /= config.samples as f64;
-        
-                    color = color.gamma_correct(2.0);
-                    color *= 255.0;
-                    
-                    let base_idx = ((i * config.width + j) * 3) as usize;
-                    let mut my_data = data.lock().unwrap();
-                    my_data[base_idx + 0] = color.x as u8;
-                    my_data[base_idx + 1] = color.y as u8;
-                    my_data[base_idx + 2] = color.z as u8;
-                }
-                if config.progress {
-                    println!("[Thread {}]: {:.2}", n, (j - start) as f64 / slice_size as f64 * 100.0);
-                }
-            }
-        }));
-    }
-
-    for handle in handles {
-        handle.join().unwrap();
-    }
-    
-    write_png(filename, &pixels.lock().unwrap(), config.width as u32, config.height as u32);
+pub struct Renderer {
+    objects: Arc<Vec<Box<dyn Hittable>>>
 }
+
+impl Renderer {
+    pub fn new(objects: Vec<Box<dyn Hittable>>) -> Renderer {
+        Renderer {
+            objects: Arc::new(objects)
+        }
+    }
+
+    pub fn render(&self, config: RenderConfig, filename: String) {
+        let aspect_ratio: f64 = config.width as f64 / config.height as f64;
+        let pixels = Arc::new(Mutex::new(vec![0 as u8; (config.width * config.height * 3) as usize]));
+        let camera = Arc::new(Camera::new(config.camera.pos, config.camera.lookat, aspect_ratio, config.camera.fov));
+
+        let num_threads = config.threads.unwrap_or(1);
+        let slice_size = config.width / num_threads;
+    
+        let mut handles = vec![];
+        for n in 0..num_threads {
+            let data = Arc::clone(&pixels);
+            let my_camera = Arc::clone(&camera);
+            let objs = Arc::clone(&self.objects);
+            handles.push(thread::spawn(move || {
+                let start = slice_size * n;
+                let end = start + slice_size;
+                let mut rng = rand::thread_rng();
+                for j in start..end {
+                    for i in 0..config.height {
+                        let mut color = Color::origin();
+                        for _ in 0..config.samples {
+                            let u = ((j as f64) + rng.gen::<f64>()) / (config.width - 1) as f64;
+                            let v = ((i as f64) + rng.gen::<f64>()) / (config.height - 1) as f64;
+                            color += cast_ray(
+                                my_camera.get_ray(u, v),
+                                &objs,
+                                config.bounces
+                            );
+                        }
+                        color /= config.samples as f64;
+            
+                        color = color.gamma_correct(2.0);
+                        color *= 255.0;
+                        
+                        let base_idx = ((i * config.width + j) * 3) as usize;
+                        let mut my_data = data.lock().unwrap();
+                        my_data[base_idx + 0] = color.x as u8;
+                        my_data[base_idx + 1] = color.y as u8;
+                        my_data[base_idx + 2] = color.z as u8;
+                    }
+                    if config.progress {
+                        println!("[Thread {}]: {:.2}", n, (j - start) as f64 / slice_size as f64 * 100.0);
+                    }
+                }
+            }));
+        }
+    
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        
+        write_png(filename.as_str(), &pixels.lock().unwrap(), config.width as u32, config.height as u32);
+    }
+}
+

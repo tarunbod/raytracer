@@ -61,6 +61,27 @@ impl Hittable for Tri {
     }
 }
 
+#[derive(Debug)]
+pub struct Rect {
+    tri1: Tri,
+    tri2: Tri
+}
+
+impl Rect {
+    pub fn new(p1: Point, p2: Point, p3: Point, p4: Point, normal: Vec3, color: Color) -> Rect {
+        Rect {
+            tri1: Tri::new(p1, p2, p3, normal, color),
+            tri2: Tri::new(p2, p3, p4, normal, color)
+        }
+    }
+}
+
+impl Hittable for Rect {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+        self.tri1.hit(ray, t_min, t_max).or(self.tri2.hit(ray, t_min, t_max))
+    }
+}
+
 pub struct Sphere {
     center: Point,
     radius: f64,
